@@ -17,13 +17,13 @@ You must have a local functional astrometry.net install. If it is working comman
 You'll need pyinstaller to package this if you make changes
 
 ```sh
-pyinstaller --onefile --windowed --name PlateSolver --icon icons/PsIcon.icns platesolver.py
+pyinstaller --windowed --name PlateSolver --icon icons/PsIcon.icns platesolver.py
 ```
 
 To make a dmg image on Mac
 
 ```sh
-cd build
+cd dist
 hdiutil create -volname "PlateSolver" -srcfolder "PlateSolver.app" -ov -format UDZO "../installers/PlateSolver.dmg"
 ```
 
