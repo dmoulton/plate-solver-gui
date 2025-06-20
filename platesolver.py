@@ -4,10 +4,10 @@ import shutil
 import glob
 import numpy as np
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,QCheckBox,
     QPushButton, QLabel, QFileDialog, QLineEdit, QTextEdit, QTableWidget, QTableWidgetItem, QSizePolicy
 )
-from PyQt5.QtCore import Qt, QProcess
+from PyQt5.QtCore import Qt, QProcess, QTimer, QCoreApplication
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QHeaderView
 from astropy.io import fits
@@ -20,31 +20,52 @@ class PlateSolveApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle('PlateSolver')
-        self.resize(800, 700)
+        self.resize(750, 700)
 
         central = QWidget()
         self.setCentralWidget(central)
         layout = QVBoxLayout(central)
 
         # Create solved info table (no borders)
-        self.solved_table = QTableWidget(3, 2)
-        self.solved_table.setFixedHeight(110)
+        self.solved_table = QTableWidget(2, 4)
+        self.solved_table.setFixedHeight(70)
         self.solved_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         header = self.solved_table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.Stretch)
         self.solved_table.verticalHeader().setVisible(False)
         self.solved_table.horizontalHeader().setVisible(False)
         self.solved_table.setShowGrid(False)
-        fields = ['Center (RA, Dec)', 'Rotation', 'Resolution']
-        for row, field in enumerate(fields):
-            item = QTableWidgetItem(field)
-            item.setFlags(Qt.ItemIsEnabled)
-            self.solved_table.setItem(row, 0, item)
-            val = QTableWidgetItem('--')
-            val.setFlags(Qt.ItemIsEnabled)
-            self.solved_table.setItem(row, 1, val)
 
-        # Top buttons row
+        # Solved information table
+        center_item = QTableWidgetItem('Center (RA, Dec)')
+        center_item.setFlags(Qt.ItemIsEnabled)
+        self.solved_table.setItem(0, 0, center_item)
+        center_val = QTableWidgetItem('--')
+        center_val.setFlags(Qt.ItemIsEnabled)
+        self.solved_table.setItem(0, 1, center_val)
+
+        rotation_item = QTableWidgetItem('Rotation')
+        rotation_item.setFlags(Qt.ItemIsEnabled)
+        self.solved_table.setItem(1, 0, rotation_item)
+        rotation_val = QTableWidgetItem('--')
+        rotation_val.setFlags(Qt.ItemIsEnabled)
+        self.solved_table.setItem(1, 1, rotation_val)
+
+        resolution_item = QTableWidgetItem('Pixel Scale')
+        resolution_item.setFlags(Qt.ItemIsEnabled)
+        self.solved_table.setItem(0, 2, resolution_item)
+        resolution_val = QTableWidgetItem('--')
+        resolution_val.setFlags(Qt.ItemIsEnabled)
+        self.solved_table.setItem(0, 3, resolution_val)
+
+        placeholder_item = QTableWidgetItem(' ')
+        placeholder_item.setFlags(Qt.ItemIsEnabled)
+        self.solved_table.setItem(1, 2, placeholder_item)
+        placeholder_val = QTableWidgetItem(' ')
+        placeholder_val.setFlags(Qt.ItemIsEnabled)
+        self.solved_table.setItem(1, 3, placeholder_val)
+
+        # Top row
         btn_layout = QHBoxLayout()
         self.open_btn = QPushButton('Open Image/File')
         self.open_btn.clicked.connect(self.open_file)
@@ -62,6 +83,11 @@ class PlateSolveApp(QMainWindow):
         btn_layout.addWidget(clear_btn)
         btn_layout.addStretch()
 
+        self.annotate_cb = QCheckBox("Annotate (slower)")
+        self.annotate_cb.setChecked(False)
+        btn_layout.addWidget(self.annotate_cb)
+        btn_layout.addStretch()
+
         self.solve_btn = QPushButton('Solve Image')
         self.solve_btn.clicked.connect(self.solve_field)
         self.solve_btn.setEnabled(False)
@@ -69,11 +95,8 @@ class PlateSolveApp(QMainWindow):
         btn_layout.addStretch()
         layout.addLayout(btn_layout)
 
-        # Resolution and solved info row
-        info_layout = QHBoxLayout()
-
-        info_layout.addWidget(self.solved_table)
-        layout.addLayout(info_layout)
+        # Solved image info
+        layout.addWidget(self.solved_table)
 
         # Image display
         self.image_label = QLabel('No image loaded')
@@ -83,7 +106,7 @@ class PlateSolveApp(QMainWindow):
         # Output log
         self.output_text = QTextEdit()
         self.output_text.setReadOnly(True)
-        self.output_text.setFixedHeight(260)
+        self.output_text.setFixedHeight(240)
         layout.addWidget(self.output_text)
 
         # Abort button below log
@@ -97,13 +120,8 @@ class PlateSolveApp(QMainWindow):
 
         # Internal state
         self.filename = None
-        self.proc = None
+        self.proc: Optional[QProcess] = None
         self.temp_dir = os.path.expanduser('~/tmp/platesolver')
-
-    def resizeEvent(self, event):
-        target_width = int(self.width() * 0.6)
-        self.solved_table.setFixedWidth(target_width)
-        super().resizeEvent(event)
 
     def open_file(self):
         start_dir = os.path.expanduser('~/Pictures')
@@ -117,7 +135,9 @@ class PlateSolveApp(QMainWindow):
         self.solve_btn.setEnabled(True)
         self.output_text.clear()
         for row in range(self.solved_table.rowCount()):
-            self.solved_table.item(row, 1).setText('--')
+            self.solved_table.item(row, 1).setText('')
+            self.solved_table.item(row, 3).setText('')
+
 
         ext = os.path.splitext(path)[1].lower()
         if ext in ['.jpg', '.jpeg', '.png']:
@@ -163,10 +183,13 @@ class PlateSolveApp(QMainWindow):
             '--scale-low',f'{low:.3f}',
             '--scale-high',f'{high:.3f}',
             '--downsample','2',
-            '--no-plots',
+            '--plot-scale','0.25',
             '--dir',self.temp_dir,
             self.filename
         ]
+        if not self.annotate_cb.isChecked():
+            args.append('--no-plots')
+
         self.proc.start(SOLVE_FIELD, args)
 
     def _on_stdout(self):
@@ -195,23 +218,55 @@ class PlateSolveApp(QMainWindow):
                 self.solved_table.item(1,1).setText(rot)
                 if cd is not None:
                     actual_res = np.sqrt(abs(np.linalg.det(cd)))*3600
-                    self.solved_table.item(2,1).setText(f'{actual_res:.2f}"')
+                    self.solved_table.item(0,3).setText(f'{actual_res:.2f}"')
                 else:
-                    self.solved_table.item(2,1).setText(f'{res:.2f}"')
+                    self.solved_table.item(0,3).setText(f'{res:.2f}"')
             except:
                 self.solved_table.item(0,1).setText('Error')
                 self.solved_table.item(1,1).setText('Error')
-                self.solved_table.item(2,1).setText(f'{res:.2f}"')
+                self.solved_table.item(0,3).setText(f'{res:.2f}"')
         self.output_text.append('✅ Plate solve complete')
-        try: shutil.rmtree(self.temp_dir)
-        except: pass
 
-    def abort_solve(self):
-        if self.proc and self.proc.state()==QProcess.Running:
-            self.proc.kill()
-            self.output_text.append('❌ Plate solve aborted')
-            self.solve_btn.setEnabled(True)
-            self.abort_btn.setEnabled(False)
+        base = os.path.splitext(os.path.basename(self.filename))[0]
+        annotated_path = os.path.join(self.temp_dir, f"{base}-ngc.png")
+        if os.path.exists(annotated_path):
+            pix = QPixmap(annotated_path)
+            if pix.width() > 700:
+                pix = pix.scaledToWidth(700, Qt.SmoothTransformation)
+            self.image_label.setPixmap(pix)
+        else:
+            self.output_text.append('No Annotations')
+
+        # try: shutil.rmtree(self.temp_dir)
+        # except: pass
+
+    from PyQt5.QtCore import QTimer
+
+    def abort_solve(self, checked: bool = False):
+        if not (self.proc and self.proc.state() == QProcess.Running):
+            return
+
+        self.abort_btn.setEnabled(False)
+        self.output_text.append('❌ Aborting solve…')
+
+        # politely ask, then force-kill later if needed
+        self.proc.finished.disconnect()
+        QTimer.singleShot(0, self.proc.terminate)
+        QTimer.singleShot(1000, self._force_kill)
+
+    def _force_kill(self):
+        if self.proc and self.proc.state() == QProcess.Running:
+            self.output_text.append('⚠️ Still running—force killing now.')
+            # schedule kill after we re-enter the loop
+            QTimer.singleShot(0, self.proc.kill)
+
+
+    def closeEvent(self, event):
+        if self.proc and self.proc.state() == QProcess.Running:
+            self.abort_solve()
+            # give the process a moment to die
+            QCoreApplication.processEvents()
+        event.accept()
 
 if __name__=='__main__':
     app = QApplication(sys.argv)
