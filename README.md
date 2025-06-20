@@ -23,6 +23,7 @@ pyinstaller --onefile --windowed --name PlateSolver --icon icons/PsIcon.icns pla
 To make a dmg image on Mac
 
 ```sh
+cd build
 hdiutil create -volname "PlateSolver" -srcfolder "PlateSolver.app" -ov -format UDZO "../installers/PlateSolver.dmg"
 ```
 
