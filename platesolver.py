@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (
     QPushButton, QLabel, QFileDialog, QLineEdit, QTextEdit, QTableWidget, QTableWidgetItem, QSizePolicy
 )
 from PyQt5.QtCore import Qt, QProcess, QTimer, QCoreApplication
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QImage, QPixmap
 from PyQt5.QtWidgets import QHeaderView
 from astropy.io import fits
 from astropy.wcs import WCS
@@ -56,6 +56,44 @@ def prepend_common_paths():
 
     # write it back
     os.environ["PATH"] = os.pathsep.join(path_dirs)
+def image_to_pixmap(path):
+    """
+    Load a FITS or TIFF (or any Qt-supported format) from `path`, convert to
+    an 8-bit image, and return a QPixmap.
+    """
+    suffix = os.path.splitext(path)[1].lower()
+
+    if suffix in ('.fits', '.fit', '.fts'):
+        # --- same as before: FITS → numpy → auto-stretch → QPixmap
+        with fits.open(path) as hdul:
+            data = hdul[0].data.astype(np.float32)
+        data = np.squeeze(data)
+        if data.ndim > 2:
+            data = data[0]
+        data = np.nan_to_num(data, nan=0.0, posinf=0.0, neginf=0.0)
+        lo, hi = np.percentile(data, (1, 99))
+        scaled = np.clip((data - lo) / (hi - lo), 0, 1)
+        img8 = (scaled * 255).astype(np.uint8)
+        h, w = img8.shape
+        qimg = QImage(img8.data, w, h, img8.strides[0], QImage.Format_Grayscale8)
+        return QPixmap.fromImage(qimg)
+
+    elif suffix in ('.tif', '.tiff'):
+        # --- load via PIL so we can auto-convert modes:
+        pil_img = Image.open(path)
+        # convert to 8-bit grayscale; you could also do .convert('RGB')
+        gray = pil_img.convert('L')
+        w, h = gray.size
+        data = gray.tobytes()
+        qimg = QImage(data, w, h, w, QImage.Format_Grayscale8)
+        return QPixmap.fromImage(qimg)
+
+    else:
+        # fallback: let Qt try
+        pix = QPixmap(path)
+        if pix.isNull():
+            raise ValueError(f"Could not load image: {path}")
+        return pix
 
 class PlateSolveApp(QMainWindow):
     def __init__(self):
@@ -183,8 +221,9 @@ class PlateSolveApp(QMainWindow):
 
 
         ext = os.path.splitext(path)[1].lower()
-        if ext in ['.jpg', '.jpeg', '.png']:
-            pix = QPixmap(path)
+        self.output_text.append(ext)
+        if ext in ['.jpg', '.jpeg', '.png', '.fits', '.fit', '.tif', '.tiff']:
+            pix = image_to_pixmap(path)
             if pix.width() > 700:
                 pix = pix.scaledToWidth(700, Qt.SmoothTransformation)
             self.image_label.setPixmap(pix)
@@ -282,15 +321,15 @@ class PlateSolveApp(QMainWindow):
         else:
             self.output_text.append('No Annotations')
 
-        try: shutil.rmtree(self.temp_dir)
-        except: pass
+        # try: shutil.rmtree(self.temp_dir)
+        # except: pass
 
 
     def abort_solve(self, checked: bool = False):
         if not (self.proc and self.proc.state() == QProcess.Running):
             return
 
-        self.abort_btn.setEnabled(False)
+        self.abort_btn.setEnabled(True)
         self.output_text.append('❌ Aborting solve…')
 
         # politely ask, then force-kill later if needed
@@ -299,6 +338,7 @@ class PlateSolveApp(QMainWindow):
         QTimer.singleShot(1000, self._force_kill)
 
     def _force_kill(self):
+        self.abort_btn.setEnabled(True)
         if self.proc and self.proc.state() == QProcess.Running:
             self.output_text.append('⚠️ Still running—force killing now.')
             # schedule kill after we re-enter the loop
