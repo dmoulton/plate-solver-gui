@@ -99,3 +99,5 @@ __pypackages__/
 # Windows
 Thumbs.db
 ehthumbs.db
+
+installers/*

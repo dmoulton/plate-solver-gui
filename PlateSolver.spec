@@ -35,11 +35,11 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['MyIcon.icns'],
+    icon=['icons/PsIcon.icns'],
 )
 app = BUNDLE(
     exe,
     name='PlateSolver.app',
-    icon='MyIcon.icns',
+    icon='icons/PsIcon.icns',
     bundle_identifier=None,
 )

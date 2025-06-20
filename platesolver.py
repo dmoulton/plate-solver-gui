@@ -16,6 +16,47 @@ from astropy.wcs import WCS
 # Always use system-installed solve-field
 SOLVE_FIELD = 'solve-field'
 
+COMMON_PATHS = [
+    # standard UNIX
+    "/usr/bin",
+    "/usr/local/bin",
+
+    # macOS Homebrew (Intel)
+    "/usr/local/bin",
+    # macOS Homebrew (Apple Silicon)
+    "/opt/homebrew/bin",
+    "/opt/homebrew/sbin",
+
+    # user‐local installs
+    os.path.expanduser("~/.local/bin"),
+
+    # conda
+    os.path.join(os.environ.get("CONDA_PREFIX", ""), "bin"),
+
+    # Linuxbrew (if you ever use it on Linux)
+    os.path.expanduser("~/home/linuxbrew/.linuxbrew/bin"),
+
+    # Windows
+    r"C:\Python39\Scripts",
+    r"C:\Users\%USERNAME%\AppData\Local\Programs\Python\Python39\Scripts",
+    r"C:\Users\%USERNAME%\anaconda3\Scripts",
+    r"C:\ProgramData\chocolatey\bin",
+    r"C:\Program Files\AstrometryNet\bin",
+]
+
+def prepend_common_paths():
+    # grab existing PATH, split into a list
+    old_path = os.environ.get("PATH", "")
+    path_dirs = old_path.split(os.pathsep)
+
+    # for each common path, if it exists on disk and isn't already in PATH, prepend it
+    for p in COMMON_PATHS:
+        if p and os.path.isdir(p) and p not in path_dirs:
+            path_dirs.insert(0, p)
+
+    # write it back
+    os.environ["PATH"] = os.pathsep.join(path_dirs)
+
 class PlateSolveApp(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -152,6 +193,8 @@ class PlateSolveApp(QMainWindow):
         if not self.filename:
             return
 
+        prepend_common_paths()
+
         brew_prefix = '/opt/homebrew/bin' if os.path.isdir('/opt/homebrew/bin') else '/usr/local/bin'
         os.environ['PATH'] = brew_prefix + os.pathsep + os.environ.get('PATH', '')
 
@@ -237,10 +280,9 @@ class PlateSolveApp(QMainWindow):
         else:
             self.output_text.append('No Annotations')
 
-        # try: shutil.rmtree(self.temp_dir)
-        # except: pass
+        try: shutil.rmtree(self.temp_dir)
+        except: pass
 
-    from PyQt5.QtCore import QTimer
 
     def abort_solve(self, checked: bool = False):
         if not (self.proc and self.proc.state() == QProcess.Running):
