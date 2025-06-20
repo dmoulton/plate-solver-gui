@@ -73,6 +73,8 @@ class PlateSolveApp(QMainWindow):
         self.solved_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         header = self.solved_table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.Stretch)
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
         self.solved_table.verticalHeader().setVisible(False)
         self.solved_table.horizontalHeader().setVisible(False)
         self.solved_table.setShowGrid(False)
