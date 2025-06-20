@@ -20,7 +20,7 @@ You'll need pyinstaller to package this if you make changes
 pyinstaller --onefile --windowed --name PlateSolver --icon icons/PsIcon.icns platesolver.py
 ```
 
-To make a dmg image
+To make a dmg image on Mac
 
 ```sh
 hdiutil create -volname "PlateSolver" -srcfolder "PlateSolver.app" -ov -format UDZO "../installers/PlateSolver.dmg"
