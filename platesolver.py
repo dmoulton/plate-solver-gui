@@ -1,7 +1,9 @@
+from re import I
 import sys
 import os
 import shutil
 import glob
+from typing import Optional
 import numpy as np
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,QCheckBox,
@@ -12,6 +14,7 @@ from PyQt5.QtGui import QImage, QPixmap
 from PyQt5.QtWidgets import QHeaderView
 from astropy.io import fits
 from astropy.wcs import WCS
+from PIL import Image
 
 # Always use system-installed solve-field
 SOLVE_FIELD = 'solve-field'
@@ -43,6 +46,10 @@ COMMON_PATHS = [
     r"C:\ProgramData\chocolatey\bin",
     r"C:\Program Files\AstrometryNet\bin",
 ]
+
+IMAGE_WIDTH = 600
+WINDOW_WIDTH = 750
+WINDOW_HEIGHT = 700
 
 def prepend_common_paths():
     # grab existing PATH, split into a list
@@ -79,14 +86,16 @@ def image_to_pixmap(path):
         return QPixmap.fromImage(qimg)
 
     elif suffix in ('.tif', '.tiff'):
-        # --- load via PIL so we can auto-convert modes:
-        pil_img = Image.open(path)
-        # convert to 8-bit grayscale; you could also do .convert('RGB')
-        gray = pil_img.convert('L')
-        w, h = gray.size
-        data = gray.tobytes()
-        qimg = QImage(data, w, h, w, QImage.Format_Grayscale8)
-        return QPixmap.fromImage(qimg)
+        try:
+            pil_img = Image.open(path)
+            gray = pil_img.convert('L')  # Convert to 8-bit grayscale
+            w, h = gray.size
+            data = gray.tobytes()
+            qimg = QImage(data, w, h, w, QImage.Format_Grayscale8)
+            return QPixmap.fromImage(qimg)
+        except Exception as e:
+            print(f"Error loading image: {e}")
+            return QPixmap()  # empty pixmap as fallback
 
     else:
         # fallback: let Qt try
@@ -187,7 +196,7 @@ class PlateSolveApp(QMainWindow):
         # Output log
         self.output_text = QTextEdit()
         self.output_text.setReadOnly(True)
-        self.output_text.setFixedHeight(240)
+        self.output_text.setFixedHeight(200)
         layout.addWidget(self.output_text)
 
         # Abort button below log
@@ -208,7 +217,7 @@ class PlateSolveApp(QMainWindow):
         start_dir = os.path.expanduser('~/Pictures')
         path, _ = QFileDialog.getOpenFileName(
             self, 'Select image or FITS', start_dir,
-            'Supported Files (*.fits *.fz *.jpg *.jpeg *.png);;All Files (*)'
+            'Supported Files (*.fits *.fz *.jpg *.jpeg *.png *.tiff *.tif);;All Files (*)'
         )
         if not path:
             return
@@ -221,11 +230,10 @@ class PlateSolveApp(QMainWindow):
 
 
         ext = os.path.splitext(path)[1].lower()
-        self.output_text.append(ext)
         if ext in ['.jpg', '.jpeg', '.png', '.fits', '.fit', '.tif', '.tiff']:
             pix = image_to_pixmap(path)
-            if pix.width() > 700:
-                pix = pix.scaledToWidth(700, Qt.SmoothTransformation)
+            if pix.width() > IMAGE_WIDTH:
+                pix = pix.scaledToWidth(IMAGE_WIDTH, Qt.SmoothTransformation)
             self.image_label.setPixmap(pix)
         else:
             self.image_label.setText(f'Loaded file: {os.path.basename(path)}')
@@ -240,7 +248,8 @@ class PlateSolveApp(QMainWindow):
         os.environ['PATH'] = brew_prefix + os.pathsep + os.environ.get('PATH', '')
 
         self.abort_btn.setEnabled(True)
-        if os.path.exists(self.temp_dir): shutil.rmtree(self.temp_dir)
+        if os.path.exists(self.temp_dir):
+            shutil.rmtree(self.temp_dir)
         os.makedirs(self.temp_dir)
 
         try:
@@ -284,13 +293,12 @@ class PlateSolveApp(QMainWindow):
 
     def _on_finished(self, exitCode, exitStatus, res):
         self.solve_btn.setEnabled(True)
-        self.abort_btn.setEnabled(False)
         base = os.path.splitext(os.path.basename(self.filename))[0]
         candidates = glob.glob(os.path.join(self.temp_dir,f'{base}.new*'))
         if not candidates:
             self.solved_table.item(0,1).setText('Not found')
             self.solved_table.item(1,1).setText('Not found')
-            self.solved_table.item(2,1).setText(f'{res:.2f}"')
+            # self.solved_table.item(2,1).setText(f'{res:.2f}"')
         else:
             try:
                 hdr = fits.getheader(candidates[0])
@@ -305,7 +313,7 @@ class PlateSolveApp(QMainWindow):
                     self.solved_table.item(0,3).setText(f'{actual_res:.2f}"')
                 else:
                     self.solved_table.item(0,3).setText(f'{res:.2f}"')
-            except:
+            except Exception:
                 self.solved_table.item(0,1).setText('Error')
                 self.solved_table.item(1,1).setText('Error')
                 self.solved_table.item(0,3).setText(f'{res:.2f}"')
@@ -315,14 +323,14 @@ class PlateSolveApp(QMainWindow):
         annotated_path = os.path.join(self.temp_dir, f"{base}-ngc.png")
         if os.path.exists(annotated_path):
             pix = QPixmap(annotated_path)
-            if pix.width() > 700:
-                pix = pix.scaledToWidth(700, Qt.SmoothTransformation)
+            if pix.width() > IMAGE_WIDTH:
+                pix = pix.scaledToWidth(IMAGE_WIDTH, Qt.SmoothTransformation)
             self.image_label.setPixmap(pix)
         else:
             self.output_text.append('No Annotations')
 
-        # try: shutil.rmtree(self.temp_dir)
-        # except: pass
+        try: shutil.rmtree(self.temp_dir)
+        except: pass
 
 
     def abort_solve(self, checked: bool = False):

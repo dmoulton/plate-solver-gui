@@ -6,6 +6,16 @@ This app is just a small GUI frontend for a local astrometry.net install. It wil
 
 You must have a local functional astrometry.net install. If it is working command line, this app should work as well. Follow the instructions for your platform to install and get it running.
 
+Also
+
+```sh
+pip install PyQt5
+pip install numpy
+pip install astropy
+pip install Pillow
+```
+
+
 ## Usage
 
 1. Select an image to solve
