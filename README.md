@@ -9,10 +9,7 @@ You must have a local functional astrometry.net install. If it is working comman
 Also
 
 ```sh
-pip install PyQt5
-pip install numpy
-pip install astropy
-pip install Pillow
+pip install PyQt5 numpy astropy Pillow
 ```
 
 
@@ -27,7 +24,7 @@ pip install Pillow
 You'll need pyinstaller to package this if you make changes
 
 ```sh
-pyinstaller --windowed --name PlateSolver --icon icons/PsIcon.icns platesolver.py
+pyinstaller PlateSolver.spec
 ```
 
 To make a dmg image on Mac
