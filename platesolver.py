@@ -16,7 +16,14 @@ from astropy.io import fits
 from astropy.wcs import WCS
 from PIL import Image
 
+VERSION = '1.01'
+NAME = "Plate Solver"
+COPYRIGHT_YEAR = "2025"
+AUTHOR = "David Moulton"
+
 SOLVE_FIELD = 'solve-field'
+WINDOW_WIDTH = 750
+WINDOW_HEIGHT = 700
 
 COMMON_PATHS = [
     "/usr/bin", "/usr/local/bin", "/opt/homebrew/bin", "/opt/homebrew/sbin",
@@ -29,9 +36,6 @@ COMMON_PATHS = [
     r"C:\\ProgramData\\chocolatey\\bin",
     r"C:\\Program Files\\AstrometryNet\\bin",
 ]
-
-WINDOW_WIDTH = 750
-WINDOW_HEIGHT = 700
 
 def prepend_common_paths():
     old_path = os.environ.get("PATH", "")
@@ -208,9 +212,9 @@ class PlateSolveApp(QMainWindow):
 
     def show_about(self):
         QMessageBox.about(self, "About PlateSolver", 
-                        "PlateSolver v1.0\n\n"\
+                        f"{NAME} v{VERSION}\n\n"\
                         "A simple GUI for plate solving with Astrometry.net\n\n"\
-                        "Created by David Moulton\n\n"\
+                        f"© {COPYRIGHT_YEAR} {AUTHOR}\n\n"\
                         "https://github.com/dmoulton/plate-solver-gui")
 
     def open_file(self):
@@ -313,6 +317,7 @@ class PlateSolveApp(QMainWindow):
         if not (self.proc and self.proc.state() == QProcess.Running):
             return
         self.abort_btn.setEnabled(False)
+        self.solve_btn.setEnabled(True)
         self.output_text.append('❌ Aborting solve…')
         self.proc.finished.disconnect()
         QTimer.singleShot(0, self.proc.terminate)

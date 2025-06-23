@@ -9,9 +9,8 @@ You must have a local functional astrometry.net install. If it is working comman
 Also
 
 ```sh
-pip install PyQt5 numpy astropy Pillow
+pip install PyQt5 numpy astropy Pillow pyinstaller
 ```
-
 
 ## Usage
 
