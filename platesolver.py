@@ -6,9 +6,9 @@ import glob
 from typing import Optional
 import numpy as np
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QCheckBox,
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QCheckBox, QMessageBox,
     QPushButton, QLabel, QFileDialog, QLineEdit, QTextEdit, QTableWidget, QTableWidgetItem,
-    QSizePolicy, QTabWidget, QHeaderView
+    QSizePolicy, QTabWidget, QHeaderView, QAction
 )
 from PyQt5.QtCore import Qt, QProcess, QTimer, QCoreApplication
 from PyQt5.QtGui import QImage, QPixmap
@@ -76,6 +76,14 @@ def image_to_pixmap(path):
 class PlateSolveApp(QMainWindow):
     def __init__(self):
         super().__init__()
+        menubar = self.menuBar()
+
+        app_menu = menubar.addMenu("PlateSolver")
+
+        about_action = QAction("About PlateSolver", self)
+        about_action.triggered.connect(self.show_about)
+        app_menu.addAction(about_action)
+
         self.original_pixmap = None
         self.setWindowTitle('PlateSolver')
         self.resize(WINDOW_WIDTH, WINDOW_HEIGHT)
@@ -175,6 +183,13 @@ class PlateSolveApp(QMainWindow):
         self.filename = None
         self.proc: Optional[QProcess] = None
         self.temp_dir = os.path.expanduser('~/tmp/platesolver')
+
+    def show_about(self):
+        QMessageBox.about(self, "About PlateSolver", 
+                        "PlateSolver v1.0\n\n"\
+                        "A simple GUI for plate solving with Astrometry.net\n\n"\
+                        "Created by David Moulton\n\n"\
+                        "https://github.com/dmoulton/plate-solver-gui")
 
     def open_file(self):
         path, _ = QFileDialog.getOpenFileName(self, 'Select image or FITS', os.path.expanduser('~/Pictures'),
