@@ -76,14 +76,21 @@ def image_to_pixmap(path):
 class PlateSolveApp(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.init_menu()
+        self.init_window()
+
+        self.filename = None
+        self.proc: Optional[QProcess] = None
+        self.temp_dir = os.path.expanduser('~/tmp/platesolver')
+
+    def init_menu(self):
         menubar = self.menuBar()
-
         app_menu = menubar.addMenu("PlateSolver")
-
         about_action = QAction("About PlateSolver", self)
         about_action.triggered.connect(self.show_about)
         app_menu.addAction(about_action)
 
+    def init_window(self):
         self.original_pixmap = None
         self.setWindowTitle('PlateSolver')
         self.resize(WINDOW_WIDTH, WINDOW_HEIGHT)
@@ -92,17 +99,27 @@ class PlateSolveApp(QMainWindow):
         self.setCentralWidget(central)
         layout = QVBoxLayout(central)
 
+        self.init_controls(layout)
+        self.init_solved_table(layout)
+        
+        self.init_tabs(layout)
+        self.init_abort(layout)
+
+    def init_solved_table(self, layout):
         self.solved_table = QTableWidget(2, 4)
         self.solved_table.setFixedHeight(70)
         self.solved_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
         header = self.solved_table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.Stretch)
         header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
+
         self.solved_table.verticalHeader().setVisible(False)
         self.solved_table.horizontalHeader().setVisible(False)
         self.solved_table.setShowGrid(False)
 
+        # Set labels and default placeholders
         center_item = QTableWidgetItem('Center (RA, Dec)')
         center_item.setFlags(Qt.ItemIsEnabled)
         self.solved_table.setItem(0, 0, center_item)
@@ -118,10 +135,15 @@ class PlateSolveApp(QMainWindow):
         self.solved_table.setItem(0, 2, resolution_item)
         self.solved_table.setItem(0, 3, QTableWidgetItem('--'))
 
+        # Row 1, cols 2 and 3: empty placeholders
         self.solved_table.setItem(1, 2, QTableWidgetItem(' '))
         self.solved_table.setItem(1, 3, QTableWidgetItem(' '))
 
+        layout.addWidget(self.solved_table)
+
+    def init_controls(self, layout):
         btn_layout = QHBoxLayout()
+
         self.open_btn = QPushButton('Open Image/File')
         self.open_btn.clicked.connect(self.open_file)
         btn_layout.addWidget(self.open_btn, alignment=Qt.AlignLeft)
@@ -131,6 +153,7 @@ class PlateSolveApp(QMainWindow):
         self.res_input = QLineEdit('')
         self.res_input.setFixedWidth(50)
         btn_layout.addWidget(self.res_input)
+
         clear_btn = QPushButton('Clear')
         clear_btn.setFixedWidth(55)
         clear_btn.clicked.connect(lambda: self.res_input.clear())
@@ -147,31 +170,34 @@ class PlateSolveApp(QMainWindow):
         self.solve_btn.setEnabled(False)
         btn_layout.addWidget(self.solve_btn, alignment=Qt.AlignRight)
         btn_layout.addStretch()
+
         layout.addLayout(btn_layout)
 
-        layout.addWidget(self.solved_table)
-
+    def init_tabs(self, layout):
         self.tab_widget = QTabWidget()
         self.tab_widget.setTabPosition(QTabWidget.North)
 
         self.image_label = QLabel('No image loaded')
         self.image_label.setAlignment(Qt.AlignCenter)
-        
         self.image_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+
         image_tab = QWidget()
         image_layout = QVBoxLayout(image_tab)
         image_layout.addWidget(self.image_label)
 
         self.output_text = QTextEdit()
         self.output_text.setReadOnly(True)
+
         log_tab = QWidget()
         log_layout = QVBoxLayout(log_tab)
         log_layout.addWidget(self.output_text)
 
         self.tab_widget.addTab(image_tab, "Image")
         self.tab_widget.addTab(log_tab, "Log")
+
         layout.addWidget(self.tab_widget)
 
+    def init_abort(self, layout):
         abort_layout = QHBoxLayout()
         self.abort_btn = QPushButton('Abort')
         self.abort_btn.setEnabled(False)
@@ -179,10 +205,6 @@ class PlateSolveApp(QMainWindow):
         abort_layout.addStretch()
         abort_layout.addWidget(self.abort_btn)
         layout.addLayout(abort_layout)
-
-        self.filename = None
-        self.proc: Optional[QProcess] = None
-        self.temp_dir = os.path.expanduser('~/tmp/platesolver')
 
     def show_about(self):
         QMessageBox.about(self, "About PlateSolver", 
